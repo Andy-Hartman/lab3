@@ -9,8 +9,10 @@
 #define BUFFER_SIZE 50 
 static char* buffer[BUFFER_SIZE]; /** Data structure that stores 10 most recent commands */
 int bufferIndex = 0; /* Index of where to place next command in buffer */
+int mostRecent = 0; /* Index of most recent command saved in buffer */
 int numberOfCommands = 0; /* Total number of commands entered by the user */
 int sig = 0; /* Int used to track status of signal, if 1, signal was just triggered */
+int found = 0; /* Int used to track status of command starting with char x for 'r x' input*/
 
 
 
@@ -82,69 +84,77 @@ void setup(char inputBuffer[], char *args[],int *background)
         exit(-1);           /* terminate with error code of -1 */
         }
 
-        /* This for loop finds \n and replaces with \0 to turn whole command into string*/
-        for (int i = 0; i < MAX_LINE; i++) {
+        /* Checks if user entered r or r + x, if so, finds command in buffer and swaps it into input buffer */
 
-            if (inputBuffer[i] == '\n'){
 
-                inputBuffer[i] == '\0'; /* Null terminator is needed to copy whole command into buffer as string */
-                break;
-            }
-        }
+        if (inputBuffer[0] == 'r') { /* User entered r*/
 
-        if (bufferIndex == 10) { /* Buffer is full of commands, need to shift to add newest*/
+            found = 0; /* Reset found to 0 */
 
-            for (int i = 0; i < 8; i++){ /* Oldest command is removed, slot 9 made empty for new command */
+            if (inputBuffer[1] == '\n'){ /* User entered just r, run most recent command */
+                
+                inputBuffer = buffer[mostRecent]; /* Assign most recent command to inputBuffer*/
+            } else if (inputBuffer[1] = ' ') { /* User specified command  to run */
 
-                buffer[i] = buffer[i + 1]; 
-            }
-            bufferIndex = 9; /* Reassign to 9*/
-            memcpy(buffer[bufferIndex], inputBuffer, strlen(inputBuffer) + 1); /* Copies command into buffer */
+                char firstLetter = inputBuffer[2] /* First letter of command */
 
-        } else { /* Array is not full of commands yet, add then increment */
+                /* Iterate through buffer, checking each command's first letter*/
 
-            buffer[bufferIndex] = malloc(strlen(inputBuffer) + 1); /* Creates space in buffer to copy command */
-            memcpy(buffer[bufferIndex], inputBuffer, strlen(inputBuffer) + 1); /* Copies command into buffer */
-            bufferIndex ++;
-        }
+                for (int i = 0; i < 10; i++){
 
-        /* examine every character in the inputBuffer */
-        for (i = 0; i < length; i++) {
-            switch (inputBuffer[i]){
-            case ' ':
-            case '\t' :               /* argument separators */
-                if(start != -1){
-                    args[ct] = &inputBuffer[start];    /* set up pointer */
-                    ct++;
+                    char command[MAX_LINE] = *buffer[i];
+
+                    if (command[0] == firstLetter) { /* Found command */
+
+                        /* Feed command to inputBuffer*/
+                        inputBuffer = buffer[i];
+                        found = 1;
+                    }
                 }
-                inputBuffer[i] = '\0'; /* add a null char; make a C string */
-                start = -1;
-                break;
-
-            case '\n':                 /* should be the final char examined */
-                if (start != -1){
-                    args[ct] = &inputBuffer[start];
-                    ct++;
-                }
-                inputBuffer[i] = '\0';
-                args[ct] = NULL; /* no more arguments to this command */
-                break;
-
-            case '&':
-                *background = 1;
-                inputBuffer[i] = '\0';
-                break;
-
-            default :             /* some other character */
-                if (start == -1)
-                    start = i;
             }
+        } else { /* User did not enter r*/
+
+            found = 1; /* Sets found to 1 so regular setup code runs */
         }
-        args[ct] = NULL; /* just in case the input line was > 80 */
-        numberOfCommands ++;
-        
+
+        if (found == 1){ /* Run setup because there is a command to run in inputBuffer*/
+
+            /* examine every character in the inputBuffer */
+            for (i = 0; i < length; i++) {
+                switch (inputBuffer[i]){
+                case ' ':
+                case '\t' :               /* argument separators */
+                    if(start != -1){
+                        args[ct] = &inputBuffer[start];    /* set up pointer */
+                        ct++;
+                    }
+                    inputBuffer[i] = '\0'; /* add a null char; make a C string */
+                    start = -1;
+                    break;
+
+                case '\n':                 /* should be the final char examined */
+                    if (start != -1){
+                        args[ct] = &inputBuffer[start];
+                        ct++;
+                    }
+                    inputBuffer[i] = '\0';
+                    args[ct] = NULL; /* no more arguments to this command */
+                    break;
+
+                case '&':
+                    *background = 1;
+                    inputBuffer[i] = '\0';
+                    break;
+
+                default :             /* some other character */
+                    if (start == -1)
+                        start = i;
+                }
+            }
+            args[ct] = NULL; /* just in case the input line was > 80 */
+            numberOfCommands ++;
+        }
     }
-    
 }
 
 int main(void)
@@ -176,6 +186,9 @@ int main(void)
         if (sig == 1) { /* If signal just happened, set sig to 0 and restart loop */
 
             sig = 0;
+        } else if (found == 0){ /* Command was not found*/
+
+            printf("Error. No command found.\n");
         } else { /* Continue as normal*/
 
             pid_t process = fork(); // forks a child process
@@ -196,6 +209,33 @@ int main(void)
 
                     printf("Invalid command!\n");
                     exit(1); //terminates child process if command is invalid
+                } else { /* Command was valid, add to buffer */
+
+                    /* This for loop finds \n and replaces with \0 to turn whole command into string*/
+                    for (int i = 0; i < MAX_LINE; i++) {
+
+                        if (inputBuffer[i] == '\n'){
+
+                            inputBuffer[i] == '\0'; /* Null terminator is needed to copy whole command into buffer as string */
+                            break;
+                        }
+                    }
+
+                    if (bufferIndex == 10) { /* Buffer is full of commands, need to shift to add newest*/
+
+                        for (int i = 0; i < 8; i++){ /* Oldest command is removed, slot 9 made empty for new command */
+
+                            buffer[i] = buffer[i + 1]; 
+                        }
+                        bufferIndex = 9; /* Reassign to 9*/
+                        memcpy(buffer[bufferIndex], inputBuffer, strlen(inputBuffer) + 1); /* Copies command into buffer */
+
+                    } else { /* Array is not full of commands yet, add then increment */
+
+                        buffer[bufferIndex] = malloc(strlen(inputBuffer) + 1); /* Creates space in buffer to copy command */
+                        memcpy(buffer[bufferIndex], inputBuffer, strlen(inputBuffer) + 1); /* Copies command into buffer */
+                        bufferIndex ++;
+                    }
                 }
             }
 
