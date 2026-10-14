@@ -32,9 +32,8 @@ char inputBufferCopy[MAX_LINE];
 
 /* the signal handler function */
 void handle_SIGINT() {
-// *params: file descriptor   buffer  length
-    //write(STDOUT_FILENO,buffer,strlen(buffer));  
-    sig = 1;      
+
+    sig = 1; /* Sets sig to 1, changing program control flow */
 }
 
 
@@ -50,37 +49,27 @@ void setup(char inputBuffer[], char *args[],int *background)
     /* read what the user enters on the command line */
     length = read(STDIN_FILENO, inputBuffer, MAX_LINE); // this is where it waits for user input
 
-    printf("Printing inputBuffer after user input before setup()...\n");
-
-            for (int i = 0; i < MAX_LINE; i++){
-
-                printf("%c", inputBuffer[i]);
-            }
-            printf("\nFinished printing!\n");
-
     if (sig == 1) { /* Checks is signal handler just ran */
 
-        /*Print 10 most recent commands*/
+        if (numberOfCommands >= 10) { /*Print 10 most recent commands*/
 
+            int commandNum = numberOfCommands - 9;
 
-        for (int i = 0; i < 10 && i < numberOfCommands; i++) {
+            for (int i = 0; i < 10; i++) {
 
-                int commandNum; /* Calculates number to print before command */
-                int shift = numberOfCommands - 10 + 1; /* Calculates difference b/w array index and command number*/
-
-                if (shift > 0){ /* If more than 10 total commands, array index + 1 and command number won't match*/
-
-                    commandNum = shift; 
-
-                } else {
-
-                    commandNum = i + 1; /* Number to print = array index + 1 */
-                }
-                
                 printf("\n%d: ", commandNum);
                 printf("%s", buffer[i]);
-            
+                commandNum ++;
+            }
+        } else { /* Less than 10 commands*/
+
+            for (int i = 0; i < numberOfCommands; i++) {
+
+                printf("\n%d: ", i + 1);
+                printf("%s", buffer[i]);
+            }
         }
+        
         printf("\nEnter 'r' to run most recent command, 'r x' to run command starting with x.\n");
 
         /* Control flow to return to main for command prompt to reappear*/
@@ -107,16 +96,8 @@ void setup(char inputBuffer[], char *args[],int *background)
                 
                 memcpy(inputBuffer, buffer[mostRecent], strlen(buffer[mostRecent]) + 1); /* Assign most recent command to inputBuffer*/
 
-                /* Print inputBuffer directly after recieving command*/
-                printf("printing inputBuffer directly after newest command transfer\n");
-                for (int i = 0; i < MAX_LINE; i++){
-
-                    printf("%c", inputBuffer[i]);
-                }
-
             } else if (inputBuffer[1] = ' ') { /* User specified command to run based on first character */
 
-                printf("Entering 'r x' handling!\n");
                 char firstLetter = inputBuffer[2]; /* First letter of command */
 
                 /* Iterate through buffer, checking each command's first letter*/
@@ -162,7 +143,6 @@ void setup(char inputBuffer[], char *args[],int *background)
                 }
             }
 
-            printf("Running setup!\n");
             /* examine every character in the inputBuffer */
             for (i = 0; i < length; i++) {
                 switch (inputBuffer[i]){
@@ -196,16 +176,6 @@ void setup(char inputBuffer[], char *args[],int *background)
                 }
             }
             args[ct] = NULL; /* just in case the input line was > 80 */
-            
-            printf("Printing inputBuffer after setup() before main()...\n");
-
-            for (int i = 0; i < MAX_LINE; i++){
-
-                printf("%c", inputBuffer[i]);
-            }
-            printf("\n");
-
-            printf("Printing args[0] after setup(): %s\n", args[0]);
         }
     }
 }
@@ -261,55 +231,41 @@ int main(void)
 
                     printf("Invalid command!\n");
                     exit(1); //terminates child process if command is invalid
-                } 
+                }                 
             }
 
             // parent process continues since process != 0, and runs this code below
             if (background == 0) {
 
-                //printf("\nEntered background == 0");
                 process = wait(NULL); // causes parent to wait until child terminates
-                //printf("\nwait(NULL) just ran!\n");
             }     
 
             if (inputBufferCopy[0] == '\0') { /* Prevents null entries from being added to buffer*/
 
-                printf("Setting invalid!\n");
-                validCommand = -1; 
-            }
-
-            if (validCommand >= 0) { /* Command was valid, add to buffer */
-
-                numberOfCommands ++;
-
-                /* This for loop finds \n and replaces with \0 to turn whole command into string*/
-                printf("Printing inputBufferCopy...\n");
-                for (int i = 0; i < MAX_LINE; i++) {
-
-                    printf("%c", inputBufferCopy[i]);
+                    validCommand = -1; 
                 }
-                printf("Done Printing!\n");
 
-                if (bufferIndex == 10) { /* Buffer is full of commands, need to shift to add newest*/
+                if (validCommand >= 0) { /* Command was valid, add to buffer */
 
-                    for (int i = 0; i < 8; i++){ /* Oldest command is removed, slot 9 made empty for new command */
+                    numberOfCommands ++;
 
-                        buffer[i] = buffer[i + 1]; 
+                    if (bufferIndex == 10) { /* Buffer is full of commands, need to shift to add newest*/
+
+                        for (int i = 0; i <= 8; i++){ /* Oldest command is removed, slot 9 made empty for new command */
+
+                            buffer[i] = buffer[i + 1]; 
+                        }
+                        bufferIndex = 9; /* Reassign to 9*/
+                        memcpy(buffer[bufferIndex], inputBufferCopy, strlen(inputBufferCopy) + 1); /* Copies command into buffer */
+
+                    } else { /* Array is not full of commands yet, add then increment */
+                            
+                        buffer[bufferIndex] = malloc(strlen(inputBufferCopy) + 1); /* Creates space in buffer to copy command */
+                        memcpy(buffer[bufferIndex], inputBufferCopy, strlen(inputBufferCopy) + 1); /* Copies command into buffer */
+                        mostRecent = bufferIndex; /* Most recent command = one just added @bufferIndex */
+                        bufferIndex ++;
                     }
-                    bufferIndex = 9; /* Reassign to 9*/
-                    memcpy(buffer[bufferIndex], inputBufferCopy, strlen(inputBufferCopy) + 1); /* Copies command into buffer */
-
-                } else { /* Array is not full of commands yet, add then increment */
-                        
-                    buffer[bufferIndex] = malloc(strlen(inputBufferCopy) + 1); /* Creates space in buffer to copy command */
-                    memcpy(buffer[bufferIndex], inputBufferCopy, strlen(inputBufferCopy) + 1); /* Copies command into buffer */
-                    mostRecent = bufferIndex; /* Most recent command = one just added @bufferIndex */
-                    bufferIndex ++;
                 }
-
-            }
-
-            
 
             // control flow returns to setup()
 
