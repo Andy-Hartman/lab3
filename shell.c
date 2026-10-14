@@ -69,8 +69,7 @@ void setup(char inputBuffer[], char *args[],int *background)
                 printf("%s", buffer[i]);
             }
         }
-        
-        printf("\nEnter 'r' to run most recent command, 'r x' to run command starting with x.\n");
+        printf("\n");
 
         /* Control flow to return to main for command prompt to reappear*/
 
@@ -190,8 +189,6 @@ int main(void)
     struct sigaction handler;
     handler.sa_handler = handle_SIGINT; 
     sigaction(SIGINT, &handler, NULL);
-    //strcpy(buffer,"Caught <ctrl><c>\n");
-
       
     char ch = '\0';
 
@@ -243,39 +240,33 @@ int main(void)
             if (inputBufferCopy[0] == '\0') { /* Prevents null entries from being added to buffer*/
 
                     validCommand = -1; 
-                }
+            }
 
-                if (validCommand >= 0) { /* Command was valid, add to buffer */
+            if (validCommand >= 0) { /* Command was valid, add to buffer */
 
-                    numberOfCommands ++;
+                numberOfCommands ++;
 
-                    if (bufferIndex == 10) { /* Buffer is full of commands, need to shift to add newest*/
+                if (bufferIndex == 10) { /* Buffer is full of commands, need to shift to add newest*/
 
-                        for (int i = 0; i <= 8; i++){ /* Oldest command is removed, slot 9 made empty for new command */
+                    for (int i = 0; i <= 8; i++){ /* Oldest command is removed, slot 9 made empty for new command */
 
-                            buffer[i] = buffer[i + 1]; 
-                        }
-                        bufferIndex = 9; /* Reassign to 9*/
-                        memcpy(buffer[bufferIndex], inputBufferCopy, strlen(inputBufferCopy) + 1); /* Copies command into buffer */
-
-                    } else { /* Array is not full of commands yet, add then increment */
-                            
-                        buffer[bufferIndex] = malloc(strlen(inputBufferCopy) + 1); /* Creates space in buffer to copy command */
-                        memcpy(buffer[bufferIndex], inputBufferCopy, strlen(inputBufferCopy) + 1); /* Copies command into buffer */
-                        mostRecent = bufferIndex; /* Most recent command = one just added @bufferIndex */
-                        bufferIndex ++;
+                        free(buffer[i]);
+                        buffer[i] = malloc(strlen(buffer[i + 1]) + 1);
+                        memcpy(buffer[i], buffer[i + 1], strlen(buffer[i + 1]) + 1);
                     }
+                    bufferIndex = 9; /* Reassign to 9*/
+                    free(buffer[9]);
+                    buffer[9] = malloc(strlen(inputBufferCopy) + 1);
+                    memcpy(buffer[9], inputBufferCopy, strlen(inputBufferCopy) + 1); /* Copies command into buffer */
+
+                } else { /* Array is not full of commands yet, add then increment */
+                            
+                    buffer[bufferIndex] = malloc(strlen(inputBufferCopy) + 1); /* Creates space in buffer to copy command */
+                    memcpy(buffer[bufferIndex], inputBufferCopy, strlen(inputBufferCopy) + 1); /* Copies command into buffer */
+                    mostRecent = bufferIndex; /* Most recent command = one just added @bufferIndex */
+                    bufferIndex ++;
                 }
-
-            // control flow returns to setup()
-
-            /* Your code performs the following steps:
-                (1) fork a child process using fork();
-                (2) the child (foreground) process runs using execvp(); and
-                (3) if background == 0, the parent waits.
-            Otherwise, the control flow should go back to the setup() function to
-            run the next command. (Hint: it's easier than you might think!) */
-
+            }
         }
     }
 }
